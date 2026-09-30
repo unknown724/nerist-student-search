@@ -1,0 +1,17 @@
+{
+  "short_name": "NERIST Student",
+  "name": "NERIST Student Explorer",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#050508",
+  "theme_color": "#050508",
+  "display": "standalone",
+  "orientation": "portrait"
+}

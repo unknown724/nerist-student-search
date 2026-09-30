@@ -1,0 +1,10 @@
+name = "nerist-student-search"
+compatibility_date = "2024-09-23"
+
+# Pages project settings
+pages_build_output_dir = "dist"
+
+# KV namespace binding for dossier cache
+[[kv_namespaces]]
+binding = "DOSSIER_CACHE"
+id = "f938a2cd998b4e3f8276135bd39f55ff"
