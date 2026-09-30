@@ -570,6 +570,20 @@ export default function App() {
 
   // SHA-256 hash of "nowyouseeme" (No plain text in source code)
   const TARGET_PASSKEY_HASH = '687762cc9c5971490fa34234523b2ac70245ecad7a0cd4ac335fc5b1315b6602';
+  // SHA-256 hash of Master Admin "devanandawaheng725@gmail.com"
+  const TARGET_ADMIN_HASH = '5dd6586ce393cfac222f82802c299ff79ad7e663506924631c89e1cffc506fc5';
+
+  // Master Admin State (Only devanandawaheng725@gmail.com can see and use Live Tracker)
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('portal_admin_sig') === '5dd6586ce393cfac222f82802c299ff79ad7e663506924631c89e1cffc506fc5' ||
+             sessionStorage.getItem('portal_admin_sig') === '5dd6586ce393cfac222f82802c299ff79ad7e663506924631c89e1cffc506fc5';
+    }
+    return false;
+  });
+  const [isAdminPromptOpen, setIsAdminPromptOpen] = useState(false);
+  const [adminEmailInput, setAdminEmailInput] = useState('');
+  const [adminPromptError, setAdminPromptError] = useState<string | null>(null);
 
   // Passkey Access Portal States
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -608,7 +622,7 @@ export default function App() {
   const fetchTrackerLogs = async () => {
     setIsLoadingLogs(true);
     try {
-      const res = await fetch('/api/track?adminKey=nowyouseeme');
+      const res = await fetch('/api/track?adminKey=devanandawaheng725@gmail.com');
       if (res.ok) {
         const data = await res.json();
         setTrackerLogs(data.logs || []);
@@ -659,13 +673,35 @@ export default function App() {
 
     try {
       const hashedInput = await computeSha256(passkeyInput);
+
+      // Check Master Admin (devanandawaheng725@gmail.com)
+      if (hashedInput === TARGET_ADMIN_HASH) {
+        if (rememberMe) {
+          localStorage.setItem('portal_passkey_sig', TARGET_PASSKEY_HASH);
+          localStorage.setItem('portal_admin_sig', TARGET_ADMIN_HASH);
+        } else {
+          sessionStorage.setItem('portal_passkey_sig', TARGET_PASSKEY_HASH);
+          sessionStorage.setItem('portal_admin_sig', TARGET_ADMIN_HASH);
+        }
+        setIsAuthenticated(true);
+        setIsAdmin(true);
+        setPasskeyError(null);
+        triggerToast("Welcome Master Admin (Devananda) 👑");
+        logTelemetry('admin_login', { email: 'devanandawaheng725@gmail.com', rememberMe });
+        return;
+      }
+
+      // Check Regular Portal Passkey (nowyouseeme)
       if (hashedInput === TARGET_PASSKEY_HASH) {
         if (rememberMe) {
           localStorage.setItem('portal_passkey_sig', TARGET_PASSKEY_HASH);
         } else {
           sessionStorage.setItem('portal_passkey_sig', TARGET_PASSKEY_HASH);
         }
+        localStorage.removeItem('portal_admin_sig');
+        sessionStorage.removeItem('portal_admin_sig');
         setIsAuthenticated(true);
+        setIsAdmin(false);
         setPasskeyError(null);
         triggerToast("Access Granted! Welcome to NERIST Portal.");
         logTelemetry('login_success', { rememberMe });
@@ -680,13 +716,38 @@ export default function App() {
     }
   };
 
+  const handleElevateAdmin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!adminEmailInput.trim()) return;
+
+    try {
+      const hashed = await computeSha256(adminEmailInput);
+      if (hashed === TARGET_ADMIN_HASH) {
+        localStorage.setItem('portal_admin_sig', TARGET_ADMIN_HASH);
+        setIsAdmin(true);
+        setIsAdminPromptOpen(false);
+        setAdminEmailInput('');
+        setAdminPromptError(null);
+        triggerToast("Master Admin Mode Activated 👑");
+        logTelemetry('admin_elevated', { email: 'devanandawaheng725@gmail.com' });
+      } else {
+        setAdminPromptError("Access Denied: Unauthorized admin identity.");
+      }
+    } catch {
+      setAdminPromptError("Verification failed.");
+    }
+  };
+
   const handleLockPortal = () => {
     localStorage.removeItem('portal_passkey_authed');
     localStorage.removeItem('portal_passkey_sig');
+    localStorage.removeItem('portal_admin_sig');
     localStorage.removeItem('portal_legacy_access');
     sessionStorage.removeItem('portal_passkey_authed');
     sessionStorage.removeItem('portal_passkey_sig');
+    sessionStorage.removeItem('portal_admin_sig');
     setIsAuthenticated(false);
+    setIsAdmin(false);
     setPasskeyInput('');
     triggerToast("Portal Session Locked 🔒");
     logTelemetry('logout');
@@ -780,6 +841,18 @@ export default function App() {
     }, 50);
     return () => clearTimeout(timer);
   }, [activeTheme, isDarkMode]);
+
+  // Global Hotkey for Admin Elevation: Ctrl + Shift + A
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        setIsAdminPromptOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Handle PWA install
   useEffect(() => {
@@ -1817,33 +1890,36 @@ export default function App() {
             <span className="header-btn-text">Filters</span>
           </button>
 
-          {/* Live Activity Tracker Modal Trigger */}
-          <button
-            onClick={() => {
-              setIsTrackerOpen(true);
-              fetchTrackerLogs();
-            }}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '12px',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              background: 'rgba(59, 130, 246, 0.08)',
-              color: '#3b82f6',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: 700,
-              fontSize: '0.78rem',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.18)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)'}
-            title="View Real-Time User & Access Telemetry"
-          >
-            <Activity size={15} />
-            <span className="header-btn-text">Live Tracker</span>
-          </button>
+          {/* Live Activity Tracker Modal Trigger (ONLY VISIBLE TO MASTER ADMIN: devanandawaheng725@gmail.com) */}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setIsTrackerOpen(true);
+                fetchTrackerLogs();
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '12px',
+                border: '1px solid rgba(234, 179, 8, 0.45)',
+                background: 'rgba(234, 179, 8, 0.12)',
+                color: '#eab308',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                transition: 'all 0.2s',
+                boxShadow: '0 0 12px rgba(234, 179, 8, 0.2)'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(234, 179, 8, 0.22)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(234, 179, 8, 0.12)'}
+              title="Master Admin Real-Time Tracker (Devananda)"
+            >
+              <Activity size={15} />
+              <span className="header-btn-text">Admin Tracker 👑</span>
+            </button>
+          )}
 
           {/* Lock Portal Button */}
           <button
@@ -2939,6 +3015,67 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Master Admin Portal Section */}
+              <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                {isAdmin ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#eab308', fontSize: '0.8rem', fontWeight: 700 }}>
+                      <span>👑 Master Admin Active:</span>
+                      <span style={{ fontFamily: 'monospace' }}>devanandawaheng725@gmail.com</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsTrackerOpen(true);
+                        fetchTrackerLogs();
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        background: 'rgba(234, 179, 8, 0.15)',
+                        border: '1px solid rgba(234, 179, 8, 0.4)',
+                        color: '#eab308',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <Activity size={16} />
+                      <span>Open Live Edge Tracker</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      setIsAdminPromptOpen(true);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Lock size={14} />
+                    <span>Admin Elevation</span>
+                  </button>
+                )}
+              </div>
+
             </div>
           </div>
         </div>
@@ -3347,6 +3484,128 @@ export default function App() {
                 })
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Elevation Dialog Modal */}
+      {isAdminPromptOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(10px)',
+            padding: '16px'
+          }}
+          onClick={() => setIsAdminPromptOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass"
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              borderRadius: '24px',
+              padding: '28px',
+              border: '1px solid rgba(234, 179, 8, 0.4)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.6), 0 0 20px rgba(234, 179, 8, 0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'rgba(234, 179, 8, 0.15)',
+                    color: '#eab308',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>Admin Master Access</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.74rem', opacity: 0.7 }}>Enter Authorized Admin Identity</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAdminPromptOpen(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleElevateAdmin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="email"
+                placeholder="devanandawaheng725@gmail.com"
+                value={adminEmailInput}
+                onChange={(e) => {
+                  setAdminEmailInput(e.target.value);
+                  if (adminPromptError) setAdminPromptError(null);
+                }}
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'rgba(0,0,0,0.3)',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+
+              {adminPromptError && (
+                <div style={{ color: '#ef4444', fontSize: '0.78rem', fontWeight: 600 }}>
+                  {adminPromptError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                style={{
+                  padding: '12px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: '#eab308',
+                  color: '#000000',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'opacity 0.2s',
+                  marginTop: '4px'
+                }}
+              >
+                VERIFY & UNLOCK TRACKER
+              </button>
+            </form>
           </div>
         </div>
       )}

@@ -26,7 +26,7 @@ export async function onRequest(context: { request: Request; env: Env }) {
   // GET: Fetch recent tracking logs (requires adminKey)
   if (request.method === 'GET') {
     const adminKey = url.searchParams.get('adminKey');
-    if (adminKey !== 'nowyouseeme') {
+    if (adminKey !== 'devanandawaheng725@gmail.com' && adminKey !== 'nowyouseeme') {
       return new Response(JSON.stringify({ error: 'Unauthorized access' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }

@@ -110,7 +110,7 @@ export default defineConfig({
             if (pathName === '/api/track') {
               if (req.method === 'GET') {
                 const adminKey = url.searchParams.get('adminKey');
-                if (adminKey !== 'nowyouseeme') {
+                if (adminKey !== 'devanandawaheng725@gmail.com' && adminKey !== 'nowyouseeme') {
                   res.statusCode = 401;
                   res.setHeader('Content-Type', 'application/json');
                   res.end(JSON.stringify({ error: 'Unauthorized access' }));
