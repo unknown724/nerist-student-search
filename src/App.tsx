@@ -24,7 +24,9 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  Zap
+  Zap,
+  Users,
+  Activity
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import studentsData from './data/students.json';
@@ -46,6 +48,10 @@ interface Student {
   avatar_url: string;
   state: string | null;
   pincode: string | null;
+  roll_no?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  status?: string | null;
 }
 
 interface CourseItem {
@@ -197,26 +203,28 @@ function DetailRow({ label, value, onCopy }: { label: string; value: string | nu
 // 3D Interactive Student Card
 function StudentCard3D({ 
   item, 
+  rollNo,
   onClick, 
   searchQuery, 
-  initials,
-  isUnlocked,
-  isBookmarked,
-  onToggleBookmark,
-  onAction,
-  onEnlargePhoto,
-  theme
+  initials, 
+  isUnlocked, 
+  isBookmarked, 
+  onToggleBookmark, 
+  onAction, 
+  onEnlargePhoto, 
+  theme 
 }: { 
   item: Student; 
+  rollNo?: string | null;
   onClick: () => void; 
-  searchQuery: string;
-  initials: string;
-  isUnlocked: boolean;
-  isBookmarked?: boolean;
-  onToggleBookmark?: () => void;
-  onAction?: () => void;
-  onEnlargePhoto?: (e: React.MouseEvent) => void;
-  theme: string;
+  searchQuery: string; 
+  initials: string; 
+  isUnlocked: boolean; 
+  isBookmarked?: boolean; 
+  onToggleBookmark?: () => void; 
+  onAction?: () => void; 
+  onEnlargePhoto?: (e: React.MouseEvent) => void; 
+  theme: string; 
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [imageError, setImageError] = useState(false);
@@ -274,11 +282,14 @@ function StudentCard3D({
   const rawYear = parseInt(item.user_id.split('/')[0], 10);
   const admYear = isNaN(rawYear) ? 2025 : 2000 + (rawYear % 100);
 
+  const rollDisplay = rollNo || item.roll_no || null;
+
   const isOnePiece = theme === 'onepiece';
+  const isAlumni = item.status === 'Alumni / Left';
 
   const pUpper = (item.program_name || '').toUpperCase();
-  const moduleBadgeClass = pUpper.includes('BASE') ? 'base' : pUpper.includes('DIPLOMA') ? 'diploma' : pUpper.includes('M.TECH') || pUpper.includes('M.SC') || pUpper.includes('PH.D') ? 'pg' : 'degree';
-  const moduleBadgeText = pUpper.includes('BASE') ? 'BASE MODULE' : pUpper.includes('DIPLOMA') ? 'DIPLOMA MODULE' : pUpper.includes('M.TECH') || pUpper.includes('M.SC') || pUpper.includes('PH.D') ? 'POST GRAD' : 'DEGREE (B.TECH)';
+  const moduleBadgeClass = isAlumni ? 'alumni' : pUpper.includes('BASE') ? 'base' : pUpper.includes('DIPLOMA') ? 'diploma' : pUpper.includes('M.TECH') || pUpper.includes('M.SC') || pUpper.includes('PH.D') ? 'pg' : 'degree';
+  const moduleBadgeText = isAlumni ? 'ALUMNI / EX-STUDENT' : pUpper.includes('BASE') ? 'BASE MODULE' : pUpper.includes('DIPLOMA') ? 'DIPLOMA MODULE' : pUpper.includes('M.TECH') || pUpper.includes('M.SC') || pUpper.includes('PH.D') ? 'POST GRAD' : 'DEGREE (B.TECH)';
 
   return (
     <div className="tilt-container">
@@ -382,12 +393,28 @@ function StudentCard3D({
                 <div>
                   CODE: REG-{highlightText(item.user_id, searchQuery)}
                 </div>
-                <div>
-                  STAGE: {moduleBadgeText} // SEM-{item.semester}
-                </div>
+                {rollDisplay && (
+                  <div style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>
+                    ROLL: {highlightText(rollDisplay, searchQuery)}
+                  </div>
+                )}
+                {isAlumni ? (
+                  <div style={{ color: '#d97706', fontWeight: 700 }}>
+                    STATUS: RETIRED / ALUMNI
+                  </div>
+                ) : (
+                  <div>
+                    STAGE: {moduleBadgeText} // SEM-{item.semester}
+                  </div>
+                )}
                 <div>
                   ORIGIN: ADM-{admYear} // {item.state ? item.state.toUpperCase() : 'UNKNOWN'}
                 </div>
+                {item.mobile && (
+                  <div style={{ color: 'var(--text-muted)' }}>
+                    COMMS: {highlightText(item.mobile, searchQuery)}
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -431,7 +458,10 @@ function StudentCard3D({
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span className={`module-badge ${moduleBadgeClass}`}>
+                      <span 
+                        className={`module-badge ${moduleBadgeClass}`}
+                        style={isAlumni ? { background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', borderColor: 'rgba(245, 158, 11, 0.25)' } : undefined}
+                      >
                         {moduleBadgeText}
                       </span>
                       {onToggleBookmark && (
@@ -473,9 +503,29 @@ function StudentCard3D({
                   {highlightText(item.full_name, searchQuery)}
                 </h3>
                 
-                <p style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--accent-primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Reg: {highlightText(item.user_id, searchQuery)}</span>
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--accent-primary)' }}>
+                    Reg: {highlightText(item.user_id, searchQuery)}
+                  </span>
+                  {rollDisplay && (
+                    <span 
+                      style={{ 
+                        fontSize: '0.72rem', 
+                        fontWeight: '700', 
+                        padding: '2px 8px', 
+                        borderRadius: '6px', 
+                        background: 'rgba(99, 102, 241, 0.08)', 
+                        color: 'var(--accent-primary)',
+                        border: '1px solid rgba(99, 102, 241, 0.2)',
+                        letterSpacing: '0.3px',
+                        fontFamily: 'monospace'
+                      }}
+                      title={`Roll No: ${rollDisplay}`}
+                    >
+                      Roll: {highlightText(rollDisplay, searchQuery)}
+                    </span>
+                  )}
+                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Dept: {item.department_name}</span>
@@ -485,12 +535,24 @@ function StudentCard3D({
               {/* Quick Info Footer */}
               <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  <span style={{ fontWeight: '500' }}>Semester {item.semester}</span>
+                  <span style={{ fontWeight: '500' }}>
+                    {isAlumni ? (
+                      <span style={{ color: '#d97706', fontWeight: 600 }}>Alumni / Left</span>
+                    ) : (
+                      `Semester ${item.semester}`
+                    )}
+                  </span>
                   <span style={{ fontWeight: '700', color: 'var(--accent-primary)' }}>CGPA: {item.cgpa}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   <span>Adm Year: {admYear}</span>
-                  {item.state && <span>{item.state}</span>}
+                  {item.mobile ? (
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                      📱 {highlightText(item.mobile, searchQuery)}
+                    </span>
+                  ) : (
+                    item.state && <span>{item.state}</span>
+                  )}
                 </div>
               </div>
             </>
@@ -506,11 +568,19 @@ function StudentCard3D({
 export default function App() {
   const [rememberMe, setRememberMe] = useState(true);
 
+  // SHA-256 hash of "nowyouseeme" (No plain text in source code)
+  const TARGET_PASSKEY_HASH = '687762cc9c5971490fa34234523b2ac70245ecad7a0cd4ac335fc5b1315b6602';
+
   // Passkey Access Portal States
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const isPersistentAuthed = localStorage.getItem('portal_passkey_authed') === 'true';
-      const isSessionAuthed = sessionStorage.getItem('portal_passkey_authed') === 'true';
+      // Invalidate legacy tokens from previous password "democracyisdead"
+      localStorage.removeItem('portal_passkey_authed');
+      localStorage.removeItem('portal_legacy_access');
+      sessionStorage.removeItem('portal_passkey_authed');
+
+      const isPersistentAuthed = localStorage.getItem('portal_passkey_sig') === '687762cc9c5971490fa34234523b2ac70245ecad7a0cd4ac335fc5b1315b6602';
+      const isSessionAuthed = sessionStorage.getItem('portal_passkey_sig') === '687762cc9c5971490fa34234523b2ac70245ecad7a0cd4ac335fc5b1315b6602';
       return isPersistentAuthed || isSessionAuthed;
     }
     return false;
@@ -519,6 +589,36 @@ export default function App() {
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
   const [showPasskeyText, setShowPasskeyText] = useState(false);
   const [isShakingGate, setIsShakingGate] = useState(false);
+
+  // Live Activity & Telemetry Tracker States
+  const [isTrackerOpen, setIsTrackerOpen] = useState(false);
+  const [trackerLogs, setTrackerLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  const logTelemetry = (event: string, details?: Record<string, any>) => {
+    try {
+      fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, details: details || {} })
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const fetchTrackerLogs = async () => {
+    setIsLoadingLogs(true);
+    try {
+      const res = await fetch('/api/track?adminKey=nowyouseeme');
+      if (res.ok) {
+        const data = await res.json();
+        setTrackerLogs(data.logs || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
 
   // Harmonia Celestial Pendulum Control States
   const [isSwarmMode, setIsSwarmMode] = useState(false); // SINGLE mode default
@@ -545,9 +645,6 @@ export default function App() {
   const [enlargedPhotoStudent, setEnlargedPhotoStudent] = useState<Student | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // SHA-256 hash of "democracyisdead" (No plain text in source code)
-  const TARGET_PASSKEY_HASH = '93c2ceffce59e6bed1252cd49815d05c15facc5b5c9a9906e2109197474aa603';
-
   const computeSha256 = async (str: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(str.trim().toLowerCase());
@@ -564,17 +661,19 @@ export default function App() {
       const hashedInput = await computeSha256(passkeyInput);
       if (hashedInput === TARGET_PASSKEY_HASH) {
         if (rememberMe) {
-          localStorage.setItem('portal_passkey_authed', 'true');
+          localStorage.setItem('portal_passkey_sig', TARGET_PASSKEY_HASH);
         } else {
-          sessionStorage.setItem('portal_passkey_authed', 'true');
+          sessionStorage.setItem('portal_passkey_sig', TARGET_PASSKEY_HASH);
         }
         setIsAuthenticated(true);
         setPasskeyError(null);
         triggerToast("Access Granted! Welcome to NERIST Portal.");
+        logTelemetry('login_success', { rememberMe });
       } else {
         setPasskeyError("Access Denied: Invalid security passkey.");
         setIsShakingGate(true);
         setTimeout(() => setIsShakingGate(false), 500);
+        logTelemetry('login_failure', { attempt: passkeyInput.trim() });
       }
     } catch (err) {
       setPasskeyError("Verification failed. Please try again.");
@@ -583,11 +682,14 @@ export default function App() {
 
   const handleLockPortal = () => {
     localStorage.removeItem('portal_passkey_authed');
+    localStorage.removeItem('portal_passkey_sig');
     localStorage.removeItem('portal_legacy_access');
     sessionStorage.removeItem('portal_passkey_authed');
+    sessionStorage.removeItem('portal_passkey_sig');
     setIsAuthenticated(false);
     setPasskeyInput('');
     triggerToast("Portal Session Locked 🔒");
+    logTelemetry('logout');
   };
 
   const handleToggleBookmark = (regNo: string) => {
@@ -886,11 +988,12 @@ export default function App() {
     const query = search.trim().toLowerCase();
     
     return students.filter(s => {
-      // 0. Bookmarked Filter
+      // 0. Bookmarked / Alumni Filter
       if (selectedModule === 'bookmarked' && !bookmarkedRegNos.includes(s.user_id)) return false;
+      if (selectedModule === 'alumni' && s.status !== 'Alumni / Left') return false;
 
       // 1. Module Filter
-      if (selectedModule !== 'all' && selectedModule !== 'bookmarked') {
+      if (selectedModule !== 'all' && selectedModule !== 'bookmarked' && selectedModule !== 'alumni') {
         const pUpper = (s.program_name || '').toUpperCase();
         if (selectedModule === 'base' && !pUpper.includes('BASE')) return false;
         if (selectedModule === 'diploma' && !pUpper.includes('DIPLOMA')) return false;
@@ -929,15 +1032,36 @@ export default function App() {
 
       const nameLower = (s.full_name || '').toLowerCase();
       const idLower = (s.user_id || '').toLowerCase();
+      const rollLower = (s.roll_no || '').toLowerCase();
+      const unlockedRoll = (unlockedDossiers[s.user_id]?.rollNo || '').toLowerCase();
       const deptLower = (s.department_name || '').toLowerCase();
       const progLower = (s.program_name || '').toLowerCase();
       const stateLower = (s.state || '').toLowerCase();
       
+      // Match query directly or normalized (without slashes/hyphens/spaces)
+      const normalizedQuery = query.replace(/[\/\-_ ]/g, '');
+      const normalizedRoll = rollLower.replace(/[\/\-_ ]/g, '');
+      const normalizedUnlockedRoll = unlockedRoll.replace(/[\/\-_ ]/g, '');
+      
+      const rollMatch = rollLower.includes(query) || 
+                        unlockedRoll.includes(query) ||
+                        (normalizedQuery.length >= 3 && (
+                          (normalizedRoll && normalizedRoll.includes(normalizedQuery)) || 
+                          (normalizedUnlockedRoll && normalizedUnlockedRoll.includes(normalizedQuery))
+                        ));
+
+      // Match mobile number
+      const studentMobileDigits = (s.mobile || unlockedDossiers[s.user_id]?.phone || '').replace(/[^0-9]/g, '');
+      const queryDigits = query.replace(/[^0-9]/g, '');
+      const mobileMatch = queryDigits.length >= 4 && studentMobileDigits.includes(queryDigits);
+
       return nameLower.includes(query) || idLower.includes(query) || 
+             rollMatch ||
+             mobileMatch ||
              deptLower.includes(query) || progLower.includes(query) ||
              stateLower.includes(query);
     });
-  }, [search, selectedDept, selectedProgram, selectedModule, selectedYear, selectedCgpaTier, selectedState, bookmarkedRegNos]);
+  }, [search, selectedDept, selectedProgram, selectedModule, selectedYear, selectedCgpaTier, selectedState, bookmarkedRegNos, unlockedDossiers]);
 
   // Scroll listener for infinite scroll
   useEffect(() => {
@@ -953,6 +1077,17 @@ export default function App() {
   const displayedStudents = useMemo(() => {
     return filteredStudents.slice(0, visibleCount);
   }, [filteredStudents, visibleCount]);
+
+  // Telemetry: Debounced logging for search queries
+  useEffect(() => {
+    const trimmed = search.trim();
+    if (trimmed.length >= 2) {
+      const timer = setTimeout(() => {
+        logTelemetry('search', { query: trimmed, resultsCount: filteredStudents.length });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [search, filteredStudents.length]);
 
   // Check if current search input is a valid manual query candidate
   const manualQueryCandidate = useMemo(() => {
@@ -1049,7 +1184,18 @@ export default function App() {
       // Program Name
       if (row.includes("SEMESTER COURSE REGISTRATION FORM FOR")) {
         const match = row.match(/SEMESTER COURSE REGISTRATION FORM FOR\s+(.*?)(?:\s+Report|\s+$)/i);
-        if (match) result.extractedProgram = match[1].trim();
+        if (match) {
+          const raw = match[1].trim();
+          if (/bachelor|technology|degree/i.test(raw)) {
+            result.extractedProgram = "B.Tech. (Degree Module)";
+          } else if (/diploma/i.test(raw)) {
+            result.extractedProgram = "Diploma Module";
+          } else if (/certificate|base/i.test(raw)) {
+            result.extractedProgram = "Base Module (Certificate)";
+          } else {
+            result.extractedProgram = raw;
+          }
+        }
       }
 
       // 1. DOB Parsing
@@ -1163,19 +1309,19 @@ export default function App() {
     // Infer exact department from rollNo branch code or course code prefixes
     if (result.rollNo) {
       const parts = result.rollNo.toUpperCase().split('/');
-      if (parts.length >= 3) {
-        const code = parts[2];
-        if (code === 'EC' || code === 'ECE') result.extractedDepartment = "Electronics and Communication Engineering";
-        else if (code === 'EE') result.extractedDepartment = "Electrical Engineering";
-        else if (code === 'ME') result.extractedDepartment = "Mechanical Engineering";
-        else if (code === 'CE') result.extractedDepartment = "Civil Engineering";
-        else if (code === 'AE' || code === 'AGE') result.extractedDepartment = "Agricultural Engineering";
-        else if (code === 'CS' || code === 'CSE') result.extractedDepartment = "Computer Science and Engineering";
-        else if (code === 'FO' || code === 'FOR') result.extractedDepartment = "Forestry";
-        else if (code === 'PH') result.extractedDepartment = "Physics";
-        else if (code === 'CY') result.extractedDepartment = "Chemistry";
-        else if (code === 'MA') result.extractedDepartment = "Mathematics";
-        else if (code === 'MB') result.extractedDepartment = "Management Studies";
+      for (const code of parts) {
+        if (['CS', 'CSE', 'AI', 'IT'].includes(code)) { result.extractedDepartment = "Computer Science and Engineering"; break; }
+        else if (['EC', 'ECE', 'MVD', 'VLSI'].includes(code)) { result.extractedDepartment = "Electronics and Communication Engineering"; break; }
+        else if (['EE', 'PSE'].includes(code)) { result.extractedDepartment = "Electrical Engineering"; break; }
+        else if (['ME', 'CIM', 'TFE', 'TSE'].includes(code)) { result.extractedDepartment = "Mechanical Engineering"; break; }
+        else if (['CE', 'GTE', 'ESE'].includes(code)) { result.extractedDepartment = "Civil Engineering"; break; }
+        else if (['AE', 'AGE', 'FMP', 'SWC', 'SWCE'].includes(code)) { result.extractedDepartment = "Agricultural Engineering"; break; }
+        else if (['FO', 'FOR', 'FR', 'FE'].includes(code)) { result.extractedDepartment = "Forestry"; break; }
+        else if (['PH'].includes(code)) { result.extractedDepartment = "Physics"; break; }
+        else if (['CY', 'CH'].includes(code)) { result.extractedDepartment = "Chemistry"; break; }
+        else if (['MA'].includes(code)) { result.extractedDepartment = "Mathematics"; break; }
+        else if (['MB', 'MBA', 'MS'].includes(code)) { result.extractedDepartment = "Management Studies"; break; }
+        else if (['HS'].includes(code)) { result.extractedDepartment = "Humanities & Social Sciences"; break; }
       }
     }
 
@@ -1204,9 +1350,33 @@ export default function App() {
 
     // Helper to finalize a successful dossier unlock
     const finalizeDossier = (parsedData: Dossier, source: string) => {
+      const resolvedRoll = parsedData.rollNo || selectedStudent?.roll_no || null;
+      let resolvedDept = parsedData.extractedDepartment;
+      if (!resolvedDept && resolvedRoll) {
+        const parts = resolvedRoll.toUpperCase().split('/');
+        for (const code of parts) {
+          if (['CS', 'CSE', 'AI', 'IT'].includes(code)) { resolvedDept = "Computer Science and Engineering"; break; }
+          else if (['EC', 'ECE', 'MVD', 'VLSI'].includes(code)) { resolvedDept = "Electronics and Communication Engineering"; break; }
+          else if (['EE', 'PSE'].includes(code)) { resolvedDept = "Electrical Engineering"; break; }
+          else if (['ME', 'CIM', 'TFE', 'TSE'].includes(code)) { resolvedDept = "Mechanical Engineering"; break; }
+          else if (['CE', 'GTE', 'ESE'].includes(code)) { resolvedDept = "Civil Engineering"; break; }
+          else if (['AE', 'AGE', 'FMP', 'SWC', 'SWCE'].includes(code)) { resolvedDept = "Agricultural Engineering"; break; }
+          else if (['FO', 'FOR', 'FR', 'FE'].includes(code)) { resolvedDept = "Forestry"; break; }
+          else if (['PH'].includes(code)) { resolvedDept = "Physics"; break; }
+          else if (['CY', 'CH'].includes(code)) { resolvedDept = "Chemistry"; break; }
+          else if (['MA'].includes(code)) { resolvedDept = "Mathematics"; break; }
+          else if (['MB', 'MBA', 'MS'].includes(code)) { resolvedDept = "Management Studies"; break; }
+          else if (['HS'].includes(code)) { resolvedDept = "Humanities & Social Sciences"; break; }
+        }
+      }
+
       setUnlockedDossiers(prev => ({
         ...prev,
-        [regNo]: parsedData
+        [regNo]: {
+          ...parsedData,
+          rollNo: resolvedRoll,
+          extractedDepartment: resolvedDept || parsedData.extractedDepartment
+        }
       }));
 
       setSelectedStudent(prev => {
@@ -1215,15 +1385,23 @@ export default function App() {
         return {
           ...prev,
           full_name: parsedData.extractedName || (prev.full_name === "Manual Lookup Profile" ? nameFromEmail : prev.full_name),
-          department_name: parsedData.extractedDepartment || prev.department_name,
+          department_name: resolvedDept || prev.department_name,
           program_name: parsedData.extractedProgram || prev.program_name,
-          semester: parsedData.extractedSemesterNum || prev.semester
+          semester: parsedData.extractedSemesterNum || prev.semester,
+          roll_no: resolvedRoll || prev.roll_no
         };
       });
 
       triggerToast(`Dossier unlocked! (${source})`);
       recordHelpAction();
       setIsExtracting(false);
+      logTelemetry('dossier_unlock', { 
+        regNo, 
+        name: parsedData.extractedName || selectedStudent?.full_name, 
+        roll: resolvedRoll,
+        dept: resolvedDept || parsedData.extractedDepartment,
+        source
+      });
     };
 
     // ─── STEP 1: Check private KV cache first (instant) ───
@@ -1639,6 +1817,34 @@ export default function App() {
             <span className="header-btn-text">Filters</span>
           </button>
 
+          {/* Live Activity Tracker Modal Trigger */}
+          <button
+            onClick={() => {
+              setIsTrackerOpen(true);
+              fetchTrackerLogs();
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '12px',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'rgba(59, 130, 246, 0.08)',
+              color: '#3b82f6',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.18)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)'}
+            title="View Real-Time User & Access Telemetry"
+          >
+            <Activity size={15} />
+            <span className="header-btn-text">Live Tracker</span>
+          </button>
+
           {/* Lock Portal Button */}
           <button
             onClick={handleLockPortal}
@@ -1734,6 +1940,7 @@ export default function App() {
                 { id: 'diploma', label: 'Diploma Module', icon: <GraduationCap size={14} /> },
                 { id: 'degree', label: 'Degree Module (B.Tech.)', icon: <GraduationCap size={14} /> },
                 { id: 'pg', label: 'Post-Graduate', icon: <GraduationCap size={14} /> },
+                { id: 'alumni', label: 'Alumni / Left', icon: <Users size={14} /> },
                 { id: 'bookmarked', label: `Saved (${bookmarkedRegNos.length})`, icon: <Bookmark size={14} /> }
               ].map(tab => (
                 <button
@@ -1830,6 +2037,7 @@ export default function App() {
                   <div key={`${item.user_id}-${idx}`} className={`cascade-card ${delayClass}`}>
                     <StudentCard3D
                       item={item}
+                      rollNo={item.roll_no || unlockedDossiers[item.user_id]?.rollNo || null}
                       searchQuery={search}
                       initials={initials}
                       isUnlocked={isUnlocked}
@@ -1838,6 +2046,7 @@ export default function App() {
                       onClick={() => {
                         setSelectedStudent(item);
                         setDrawerImageError(false);
+                        logTelemetry('view_profile', { regNo: item.user_id, name: item.full_name, roll: item.roll_no });
                       }}
                       onAction={recordHelpAction}
                       onEnlargePhoto={() => setEnlargedPhotoStudent(item)}
@@ -2022,9 +2231,39 @@ export default function App() {
                 <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                   {selectedStudent.full_name}
                 </h2>
-                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-primary)', marginTop: '4px' }}>
-                  Reg: {selectedStudent.user_id}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                    Reg: {selectedStudent.user_id}
+                  </p>
+                  {(selectedStudent.roll_no || unlockedDossiers[selectedStudent.user_id]?.rollNo) && (
+                    <span style={{ 
+                      fontSize: '0.78rem', 
+                      fontWeight: 700, 
+                      padding: '2px 8px', 
+                      borderRadius: '6px', 
+                      backgroundColor: 'rgba(99, 102, 241, 0.1)', 
+                      color: 'var(--accent-primary)',
+                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                      fontFamily: 'monospace'
+                    }}>
+                      Roll: {selectedStudent.roll_no || unlockedDossiers[selectedStudent.user_id]?.rollNo}
+                    </span>
+                  )}
+                  {selectedStudent.status === 'Alumni / Left' && (
+                    <span style={{ 
+                      fontSize: '0.75rem', 
+                      fontWeight: 700, 
+                      padding: '2px 8px', 
+                      borderRadius: '6px', 
+                      backgroundColor: 'rgba(245, 158, 11, 0.12)', 
+                      color: '#d97706',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      textTransform: 'uppercase'
+                    }}>
+                      Alumni / Left
+                    </span>
+                  )}
+                </div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                   {selectedStudent.department_name}
                 </p>
@@ -2038,7 +2277,9 @@ export default function App() {
                 </div>
                 <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
                   <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Academic Stage</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Semester {selectedStudent.semester}</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {selectedStudent.status === 'Alumni / Left' ? 'Alumni / Ex-Student' : `Semester ${selectedStudent.semester}`}
+                  </span>
                 </div>
                 <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
                   <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>CGPA Score</span>
@@ -2049,6 +2290,108 @@ export default function App() {
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{selectedStudent.state || 'N/A'}</span>
                 </div>
               </div>
+
+              {/* Verified Contact Quick Access */}
+              {(selectedStudent.mobile || selectedStudent.email) && (
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(139, 92, 246, 0.04) 100%)',
+                  border: '1px solid rgba(99, 102, 241, 0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Phone size={11} /> Verified Contact Info
+                    </span>
+                    {selectedStudent.status && (
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b' }}>
+                        {selectedStudent.status}
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedStudent.mobile && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>
+                        📞 {selectedStudent.mobile}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          onClick={() => copyToClipboard(selectedStudent.mobile!, 'Phone')}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'var(--surface-solid)',
+                            cursor: 'pointer',
+                            color: 'var(--text-primary)'
+                          }}
+                        >
+                          Copy
+                        </button>
+                        <a
+                          href={getWhatsAppLink(selectedStudent.mobile)}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            borderRadius: '6px',
+                            background: '#25D366',
+                            color: 'white',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          WhatsApp
+                        </a>
+                        <a
+                          href={`tel:${selectedStudent.mobile.replace(/\s+/g, '')}`}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            borderRadius: '6px',
+                            background: 'var(--accent-primary)',
+                            color: 'white',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          Call
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedStudent.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingTop: '4px', borderTop: '1px dashed var(--border-color)' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        ✉️ {selectedStudent.email}
+                      </span>
+                      <button
+                        onClick={() => copyToClipboard(selectedStudent.email!, 'Email')}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          borderRadius: '4px',
+                          border: '1px solid var(--border-color)',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          color: 'var(--text-secondary)'
+                        }}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Dossier Unlock Section */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
@@ -2209,7 +2552,7 @@ export default function App() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <DetailRow label="DOB" value={unlockedDossiers[selectedStudent.user_id].dob} onCopy={() => copyToClipboard(unlockedDossiers[selectedStudent.user_id].dob || '', 'DOB')} />
-                      <DetailRow label="Institute Roll No" value={unlockedDossiers[selectedStudent.user_id].rollNo || null} onCopy={() => copyToClipboard(unlockedDossiers[selectedStudent.user_id].rollNo || '', 'Roll No')} />
+                      <DetailRow label="Institute Roll No" value={unlockedDossiers[selectedStudent.user_id].rollNo || selectedStudent.roll_no || null} onCopy={() => copyToClipboard(unlockedDossiers[selectedStudent.user_id].rollNo || selectedStudent.roll_no || '', 'Roll No')} />
                       <DetailRow label="Semester / Session" value={unlockedDossiers[selectedStudent.user_id].forSemester || null} />
                       <DetailRow label="Father" value={unlockedDossiers[selectedStudent.user_id].fatherName} onCopy={() => copyToClipboard(unlockedDossiers[selectedStudent.user_id].fatherName || '', 'Father Name')} />
                       <DetailRow label="Mother" value={unlockedDossiers[selectedStudent.user_id].motherName} onCopy={() => copyToClipboard(unlockedDossiers[selectedStudent.user_id].motherName || '', 'Mother Name')} />
@@ -2742,6 +3085,267 @@ export default function App() {
                 <Share2 size={16} />
                 <span>Share photo</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Edge Telemetry Tracker Modal */}
+      {isTrackerOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(12px)',
+            padding: '16px'
+          }}
+          onClick={() => setIsTrackerOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass"
+            style={{
+              width: '100%',
+              maxWidth: '920px',
+              maxHeight: '90vh',
+              borderRadius: '28px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 30px 60px rgba(0,0,0,0.6)',
+              overflow: 'hidden',
+              background: 'var(--bg-glass, rgba(13, 17, 23, 0.95))'
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#3b82f6'
+                  }}
+                >
+                  <Activity size={22} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Live Edge Telemetry Tracker</h3>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        color: '#10b981',
+                        fontSize: '0.7rem',
+                        fontWeight: 700
+                      }}
+                    >
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                      ONLINE
+                    </span>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem', opacity: 0.7 }}>
+                    Cloudflare Edge Real-Time Visitor, Session & Audit Logs
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  onClick={fetchTrackerLogs}
+                  disabled={isLoadingLogs}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  <span>Refresh</span>
+                </button>
+
+                <button
+                  onClick={() => setIsTrackerOpen(false)}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                gap: '12px',
+                padding: '16px 24px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              <div style={{ padding: '12px 16px', borderRadius: '16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: '0.72rem', opacity: 0.6, fontWeight: 600, textTransform: 'uppercase' }}>Recent Events</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-primary, #3b82f6)', marginTop: '4px' }}>
+                  {trackerLogs.length}
+                </div>
+              </div>
+              <div style={{ padding: '12px 16px', borderRadius: '16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: '0.72rem', opacity: 0.6, fontWeight: 600, textTransform: 'uppercase' }}>Unique IPs</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+                  {new Set(trackerLogs.map(l => l.ip)).size}
+                </div>
+              </div>
+              <div style={{ padding: '12px 16px', borderRadius: '16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: '0.72rem', opacity: 0.6, fontWeight: 600, textTransform: 'uppercase' }}>Logins / Attempts</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>
+                  {trackerLogs.filter(l => (l.event || '').includes('login')).length}
+                </div>
+              </div>
+              <div style={{ padding: '12px 16px', borderRadius: '16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: '0.72rem', opacity: 0.6, fontWeight: 600, textTransform: 'uppercase' }}>Dossier Unlocks</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ec4899', marginTop: '4px' }}>
+                  {trackerLogs.filter(l => l.event === 'dossier_unlock').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Logs List Area */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '16px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}
+            >
+              {trackerLogs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 0', opacity: 0.6 }}>
+                  <ShieldCheck size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+                  <p style={{ margin: 0, fontWeight: 600 }}>No telemetry events recorded yet.</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>When users access the portal or search, real-time edge logs appear here.</p>
+                </div>
+              ) : (
+                trackerLogs.map((log: any, idx: number) => {
+                  const eventColors: Record<string, { bg: string; border: string; text: string }> = {
+                    login_success: { bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
+                    login_failure: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.3)', text: '#ef4444' },
+                    logout: { bg: 'rgba(156, 163, 175, 0.15)', border: 'rgba(156, 163, 175, 0.3)', text: '#9ca3af' },
+                    search: { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
+                    dossier_unlock: { bg: 'rgba(236, 72, 153, 0.15)', border: 'rgba(236, 72, 153, 0.3)', text: '#ec4899' },
+                    view_profile: { bg: 'rgba(168, 85, 247, 0.15)', border: 'rgba(168, 85, 247, 0.3)', text: '#a855f7' }
+                  };
+                  const color = eventColors[log.event] || { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.2)', text: '#ffffff' };
+                  const timeFormatted = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                  const dateFormatted = new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+                  return (
+                    <div
+                      key={log.id || idx}
+                      style={{
+                        padding: '14px 18px',
+                        borderRadius: '16px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              padding: '3px 9px',
+                              borderRadius: '8px',
+                              background: color.bg,
+                              border: `1px solid ${color.border}`,
+                              color: color.text,
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em'
+                            }}
+                          >
+                            {(log.event || '').replace('_', ' ')}
+                          </span>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'monospace', color: '#60a5fa' }}>
+                            {log.ip}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.6, fontFamily: 'monospace' }}>
+                          {dateFormatted} {timeFormatted}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '14px', fontSize: '0.78rem', opacity: 0.85 }}>
+                        <div>
+                          📍 <span style={{ fontWeight: 600 }}>{log.city || 'Unknown City'}{log.region ? `, ${log.region}` : ''}</span> ({log.country || 'IN'})
+                        </div>
+                        {log.isp && log.isp !== 'Unknown ISP' && (
+                          <div>
+                            📡 <span style={{ fontWeight: 600 }}>{log.isp}</span>
+                          </div>
+                        )}
+                        {log.details && Object.keys(log.details).length > 0 && (
+                          <div style={{ background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.74rem' }}>
+                            {JSON.stringify(log.details).replace(/[{"}]/g, '')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

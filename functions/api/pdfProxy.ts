@@ -17,7 +17,10 @@ export async function onRequest(context: any) {
     '2024_2', '2024_1',
     '2023_2', '2023_1',
     '2022_2', '2022_1',
-    '2020_2', '2020_1'
+    '2021_2', '2021_1',
+    '2020_2', '2020_1',
+    '2019_2', '2019_1',
+    '2018_2'
   ];
 
   const FETCH_TIMEOUT_MS = 8000; // 8-second timeout per individual fetch
